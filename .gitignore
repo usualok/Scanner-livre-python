@@ -1,0 +1,25 @@
+﻿# Windows / éditeurs
+Thumbs.db
+.DS_Store
+*.log
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.venv/
+venv/
+.env
+.env.*
+
+# Données locales / backups (ne pas pousser)
+backups/
+scans
+scans_OLD
+*.db
+*.sqlite
+gitoken
