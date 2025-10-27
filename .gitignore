@@ -23,3 +23,10 @@ scans_OLD
 *.db
 *.sqlite
 gitoken
+
+# Security
+git*token*
+*gittoken*.txt
+*.pat
+*.secret
+
