@@ -924,30 +924,33 @@ class ExportTab(ttk.Frame):
         """Exporte les scans vers un CSV eBay"""
         try:
             self.log("🚀 Génération du CSV eBay...")
-            
-            # Générer le CSV
-            csv_path = ebay_export_module.generate_ebay_csv_today()
-            
-            if csv_path and os.path.exists(csv_path):
-                self.log(f"✅ CSV généré: {csv_path}")
-                
-                # Demander où sauvegarder
-                save_path = filedialog.asksaveasfilename(
-                    defaultextension=".csv",
-                    filetypes=[("CSV files", "*.csv")],
-                    initialfile=os.path.basename(csv_path)
-                )
-                
-                if save_path:
-                    import shutil
-                    shutil.copy2(csv_path, save_path)
-                    self.log(f"💾 Sauvegardé: {save_path}")
-                    messagebox.showinfo("Succès", f"CSV exporté:\n{save_path}")
-                    self.refresh_stats()
+
+            # Sélectionner le chemin de sauvegarde
+            output_path = filedialog.asksaveasfilename(
+                defaultextension=".csv",
+                filetypes=[("CSV files", "*.csv")],
+                initialfile=f"ebay-{date.today().isoformat()}.csv"
+            )
+            if not output_path:
+                self.log("❌ Export annulé par l'utilisateur")
+                return
+
+            # Récupérer les scans enrichis à exporter
+            scans_data = database.get_all_enriched_scans()
+
+            # Appeler le module d'export (ORDRE IMPORTANT: path d'abord, data ensuite)
+            result = ebay_export_module.export_to_ebay_csv(output_path, scans_data)
+
+            # Vérifier le résultat
+            if result and result.get('success'):
+                self.log(f"✅ {result['message']}")
+                self.log(f"� Fichier: {result['file_path']}")
+                messagebox.showinfo("Succès", f"{result['message']}\n\nFichier: {result['file_path']}")
+                self.refresh_stats()
             else:
-                self.log("❌ Erreur lors de la génération du CSV")
-                messagebox.showerror("Erreur", "Aucun scan à exporter ou erreur lors de la génération")
-                
+                error_msg = result.get('message', 'Erreur inconnue') if result else 'Erreur inconnue'
+                self.log(f"❌ {error_msg}")
+                messagebox.showerror("Erreur", error_msg)
         except Exception as e:
             self.log(f"❌ Erreur: {e}")
             messagebox.showerror("Erreur", f"Erreur lors de l'export:\n{e}")

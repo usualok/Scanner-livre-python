@@ -1,3 +1,53 @@
+# ======================= EXPORT CSV (NOUVELLE SIGNATURE) =======================
+def export_to_ebay_csv(output_path: str, scans_data: list) -> dict:
+    """
+    Exporte les scans enrichis vers un CSV format eBay (51 colonnes).
+    
+    Args:
+        output_path: Chemin complet du fichier CSV à créer (ex: 'ebay-2025-10-29.csv')
+        scans_data: Liste de dictionnaires contenant les scans enrichis
+        
+    Returns:
+        dict avec 'success' (bool), 'message' (str), 'file_path' (str)
+    """
+    try:
+        # Vérifier qu'on a des données
+        if not scans_data:
+            return {
+                'success': False,
+                'message': 'Aucun scan à exporter',
+                'file_path': None
+            }
+
+        # Générer les lignes CSV
+        rows = []
+        for item in scans_data:
+            # Par défaut, quantité = item['quantity'] ou 1
+            quantity = item.get('quantity', 1)
+            row = build_ebay_row(item, quantity)
+            rows.append(row)
+
+        # Écrire le fichier CSV
+        with open(output_path, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            writer.writerow(config.EBAY_CSV_HEADERS)
+            writer.writerows(rows)
+
+        print(f"✅ Export terminé: {output_path}")
+        return {
+            'success': True,
+            'message': f'Export réussi: {len(scans_data)} scans',
+            'file_path': output_path
+        }
+    except Exception as e:
+        print(f"❌ Erreur export: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            'success': False,
+            'message': f'Erreur: {str(e)}',
+            'file_path': None
+        }
 """
 Module Export eBay - Scanner Livre App
 Génère fichiers CSV au format eBay File Exchange (51 colonnes)
