@@ -1153,6 +1153,83 @@ def test_database():
     print("\n🎉 Tous les tests passés!")
 
 
+# ======================= ENRICHISSEMENT: UPDATE & GET BY ID =======================
+def update_scan_enrichment(scan_id: int, enrichment_data: dict) -> bool:
+    """
+    Met à jour un scan avec les données d'enrichissement (APIs).
+    
+    Args:
+        scan_id: ID du scan dans la table scans
+        enrichment_data: Dictionnaire avec les données enrichies
+        
+    Returns:
+        True si succès, False sinon
+    """
+    try:
+        # Préparer les colonnes à mettre à jour
+        update_fields = []
+        values = []
+        
+        # Mapping des champs d'enrichissement vers les colonnes de la DB
+        field_mapping = {
+            'title': 'title',
+            'author': 'author',
+            'publisher': 'publisher',
+            'publication_date': 'publication_date',
+            'isbn': 'isbn',
+            'isbn13': 'isbn13',
+            'language': 'language',
+            'pages': 'pages',
+            'dimensions': 'dimensions',
+            'weight': 'weight_minor',
+            'description': 'description',
+            'category': 'category',
+            'image_url': 'image_url',
+            'retail_price': 'msrp',
+            'api_source': 'api_source'
+        }
+        
+        # Construire la requête UPDATE dynamiquement
+        for api_field, db_field in field_mapping.items():
+            if api_field in enrichment_data and enrichment_data[api_field]:
+                update_fields.append(f"{db_field} = ?")
+                values.append(enrichment_data[api_field])
+        
+        # Si aucun champ à mettre à jour, retourner True quand même
+        if not update_fields:
+            return True
+        
+        # Ajouter l'ID à la fin des valeurs
+        values.append(scan_id)
+        
+        # Construire et exécuter la requête
+        query = f"""
+            UPDATE scans 
+            SET {', '.join(update_fields)}
+            WHERE id = ?
+        """
+        
+        execute_query(query, tuple(values))
+        return True
+        
+    except Exception as e:
+        print(f"❌ Erreur update_scan_enrichment: {e}")
+        return False
+
+
+def get_scan_by_id(scan_id: int) -> dict:
+    """
+    Récupère un scan par son ID.
+    
+    Args:
+        scan_id: ID du scan
+        
+    Returns:
+        Dictionnaire avec les données du scan, ou None si non trouvé
+    """
+    query = "SELECT * FROM scans WHERE id = ?"
+    return fetch_one(query, (scan_id,))
+
 if __name__ == "__main__":
     # Si on exécute ce fichier directement, lance les tests
     test_database()
