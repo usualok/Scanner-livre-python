@@ -1126,27 +1126,12 @@ class DatabaseTab(ttk.Frame):
         # Stats
         stats_frame = ttk.Frame(main_frame)
         stats_frame.pack(fill='x', pady=5)
-        
-        self.stats_label = ttk.Label(stats_frame, text="Chargement...", font=('Arial', 10))
-        self.stats_label.pack(side='left')
-        
-        # Boutons
-        button_frame = ttk.Frame(stats_frame)
-        button_frame.pack(side='right')
-        
-        ttk.Button(button_frame, text="🔄 Rafraîchir", command=self.load_all_scans).pack(side='left', padx=2)
-        ttk.Button(button_frame, text="📥 Exporter CSV", command=self.export_csv).pack(side='left', padx=2)
-        
-        # Tableau avec TOUS les scans
-        table_frame = ttk.Frame(main_frame)
-        table_frame.pack(fill='both', expand=True, pady=5)
-        
-        # Treeview
-        columns = ('timestamp', 'pallet', 'upc', 'sku', 'title', 'qty', 'msrp', 
-                  'bin', 'condition', 'qty_vendue', 'restant', 'status')
-        
-        self.scans_tree = ttk.Treeview(table_frame, columns=columns, show='headings', height=20)
-        
+        columns = ('timestamp', 'pallet', 'upc', 'sku', 'title', 'qty', 'qty_total_upc', 
+              'msrp', 'bin', 'condition', 'qty_condition', 'weight', 'length', 'width', 
+              'depth', 'qty_vendue', 'restant', 'status')
+
+        self.scans_tree = ttk.Treeview(main_frame, columns=columns, show='headings', height=20)
+
         # Headers
         self.scans_tree.heading('timestamp', text='Timestamp')
         self.scans_tree.heading('pallet', text='Pallet')
@@ -1154,13 +1139,19 @@ class DatabaseTab(ttk.Frame):
         self.scans_tree.heading('sku', text='SKU')
         self.scans_tree.heading('title', text='Titre')
         self.scans_tree.heading('qty', text='Qty')
+        self.scans_tree.heading('qty_total_upc', text='Qty/Total')
         self.scans_tree.heading('msrp', text='MSRP')
         self.scans_tree.heading('bin', text='Bin')
         self.scans_tree.heading('condition', text='Condition')
+        self.scans_tree.heading('qty_condition', text='Qty Condition')
+        self.scans_tree.heading('weight', text='Weight (oz)')
+        self.scans_tree.heading('length', text='Length (in)')
+        self.scans_tree.heading('width', text='Width (in)')
+        self.scans_tree.heading('depth', text='Depth (in)')
         self.scans_tree.heading('qty_vendue', text='Qty vendue')
         self.scans_tree.heading('restant', text='Restant')
         self.scans_tree.heading('status', text='Statut')
-        
+
         # Widths
         self.scans_tree.column('timestamp', width=140)
         self.scans_tree.column('pallet', width=70)
@@ -1168,68 +1159,140 @@ class DatabaseTab(ttk.Frame):
         self.scans_tree.column('sku', width=90)
         self.scans_tree.column('title', width=280)
         self.scans_tree.column('qty', width=50)
+        self.scans_tree.column('qty_total_upc', width=80)
         self.scans_tree.column('msrp', width=70)
         self.scans_tree.column('bin', width=70)
         self.scans_tree.column('condition', width=80)
+        self.scans_tree.column('qty_condition', width=100)
+        self.scans_tree.column('weight', width=90)
+        self.scans_tree.column('length', width=90)
+        self.scans_tree.column('width', width=80)
+        self.scans_tree.column('depth', width=80)
         self.scans_tree.column('qty_vendue', width=85)
         self.scans_tree.column('restant', width=70)
         self.scans_tree.column('status', width=100)
-        
+
         self.scans_tree.pack(fill='both', expand=True, side='left')
-        
-        # Scrollbar
-        scrollbar = ttk.Scrollbar(table_frame, orient='vertical', command=self.scans_tree.yview)
-        scrollbar.pack(side='right', fill='y')
-        self.scans_tree.configure(yscrollcommand=scrollbar.set)
-        
-        # Charger les données
-        self.load_all_scans()
-    
-    def load_all_scans(self):
-        """Charge TOUS les scans dans le tableau"""
-        # Vider le treeview
-        for item in self.scans_tree.get_children():
-            self.scans_tree.delete(item)
-        
-        # Charger TOUS les scans
-        query = "SELECT * FROM scans ORDER BY timestamp DESC"
-        scans = database.fetch_all(query)
-        
-        total_qty = 0
-        total_vendue = 0
-        
-        for scan in scans:
+
+                # Tableau avec TOUS les scans
+                table_frame = ttk.Frame(main_frame)
+                table_frame.pack(fill='both', expand=True, pady=5)
+
+                # Treeview
+                columns = ('timestamp', 'pallet', 'upc', 'sku', 'title', 'qty', 'qty_total_upc', 
+                                    'msrp', 'bin', 'condition', 'qty_condition', 'weight', 'length', 'width', 
+                                    'depth', 'qty_vendue', 'restant', 'status')
+
+                self.scans_tree = ttk.Treeview(table_frame, columns=columns, show='headings', height=20)
+
+                # Headers
+                self.scans_tree.heading('timestamp', text='Timestamp')
+                self.scans_tree.heading('pallet', text='Pallet')
+                self.scans_tree.heading('upc', text='UPC')
+                self.scans_tree.heading('sku', text='SKU')
+                self.scans_tree.heading('title', text='Titre')
+                self.scans_tree.heading('qty', text='Qty')
+                self.scans_tree.heading('qty_total_upc', text='Qty/Total')
+                self.scans_tree.heading('msrp', text='MSRP')
+                self.scans_tree.heading('bin', text='Bin')
+                self.scans_tree.heading('condition', text='Condition')
+                self.scans_tree.heading('qty_condition', text='Qty Condition')
+                self.scans_tree.heading('weight', text='Weight (oz)')
+                self.scans_tree.heading('length', text='Length (in)')
+                self.scans_tree.heading('width', text='Width (in)')
+                self.scans_tree.heading('depth', text='Depth (in)')
+                self.scans_tree.heading('qty_vendue', text='Qty vendue')
+                self.scans_tree.heading('restant', text='Restant')
+                self.scans_tree.heading('status', text='Statut')
+
+                # Widths
+                self.scans_tree.column('timestamp', width=140)
+                self.scans_tree.column('pallet', width=70)
+                self.scans_tree.column('upc', width=110)
+                self.scans_tree.column('sku', width=90)
+                self.scans_tree.column('title', width=280)
+                self.scans_tree.column('qty', width=50)
+                self.scans_tree.column('qty_total_upc', width=80)
+                self.scans_tree.column('msrp', width=70)
+                self.scans_tree.column('bin', width=70)
+                self.scans_tree.column('condition', width=80)
+                self.scans_tree.column('qty_condition', width=100)
+                self.scans_tree.column('weight', width=90)
+                self.scans_tree.column('length', width=90)
+                self.scans_tree.column('width', width=80)
+                self.scans_tree.column('depth', width=80)
+                self.scans_tree.column('qty_vendue', width=85)
+                self.scans_tree.column('restant', width=70)
+                self.scans_tree.column('status', width=100)
+
+                self.scans_tree.pack(fill='both', expand=True, side='left')
+
+                # Scrollbar vertical
+                scrollbar_y = ttk.Scrollbar(table_frame, orient='vertical', command=self.scans_tree.yview)
+                scrollbar_y.pack(side='right', fill='y')
+                self.scans_tree.configure(yscrollcommand=scrollbar_y.set)
+
+                # Scrollbar horizontal
+                scrollbar_x = ttk.Scrollbar(table_frame, orient='horizontal', command=self.scans_tree.xview)
+                scrollbar_x.pack(side='bottom', fill='x')
+                self.scans_tree.configure(xscrollcommand=scrollbar_x.set)
+
+                # Charger les données
+                self.load_all_scans()
+    # Charger TOUS les scans
+    query = "SELECT * FROM scans ORDER BY timestamp DESC"
+    scans = database.fetch_all(query)
+    for scan in scans:
             qty = scan.get('quantity', 0)
             qty_vendue = scan.get('qty_vendue', 0)
             restant = max(0, qty - qty_vendue)
-            
             total_qty += qty
             total_vendue += qty_vendue
-            
+            # Calculer qty total pour cet UPC
+            upc = scan.get('upc', '')
+            qty_total_upc = database.get_total_scanned_for_upc(upc)
+            qty_total_display = f"{qty}/{qty_total_upc}"
+            # Calculer qty pour cette condition spécifique
+            condition = scan.get('condition', '')
+            query_condition = """
+            SELECT SUM(quantity) as total 
+            FROM scans 
+            WHERE upc = ? AND condition = ?
+            """
+            result_condition = database.fetch_one(query_condition, (upc, condition))
+            qty_condition = result_condition['total'] if result_condition and result_condition['total'] else qty
+            # Dimensions
+            weight = scan.get('weight_minor', 0)
+            length = scan.get('pkg_length', 0)
+            width = scan.get('pkg_width', 0)
+            depth = scan.get('pkg_depth', 0)
             self.scans_tree.insert('', 'end', values=(
-                scan.get('timestamp', '')[:19],  # Timestamp
+                scan.get('timestamp', '')[:19],
                 scan.get('pallet', ''),
                 scan.get('upc', ''),
                 scan.get('sku', ''),
-                scan.get('title', 'N/A')[:35],  # Titre tronqué
+                scan.get('title', 'N/A')[:35],
                 qty,
+                qty_total_display,
                 f"${scan.get('msrp', 0):.2f}" if scan.get('msrp') else '',
                 scan.get('bin', ''),
                 scan.get('condition', ''),
+                qty_condition,
+                f"{weight} oz" if weight else '',
+                f"{length}\"" if length else '',
+                f"{width}\"" if width else '',
+                f"{depth}\"" if depth else '',
                 qty_vendue,
                 restant,
                 scan.get('status', 'En attente')
             ))
-        
         # Mettre à jour les stats
         total_scans = len(scans)
         restant_total = total_qty - total_vendue
-        
         self.stats_label.config(
             text=f"Total: {total_scans:,} scans | {total_qty:,} livres | "
                  f"{total_vendue:,} vendus | {restant_total:,} restants"
         )
-        
         self.app.update_status(f"Base de données: {total_scans:,} scans chargés")
     
     def export_csv(self):

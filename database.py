@@ -915,7 +915,7 @@ def get_total_revenue() -> float:
 # ========================================================================
 
 def get_total_scanned() -> int:
-    """Retourne le nombre total de livres scannés."""
+    """Retourne le nombre total de livres scannés (somme des quantités)."""
     query = "SELECT SUM(quantity) as total FROM scans"
     result = fetch_one(query)
     
@@ -992,25 +992,12 @@ def get_manifest_by_upc(upc: str) -> Optional[Dict]:
 
 
 def count_manifest() -> int:
-    """
-    Compte le nombre total de livres dans le MANIFEST.
-    
-    Returns:
-        int: Nombre de lignes dans le MANIFEST
-    
-    Exemple:
-        >>> count_manifest()
-        14000
-    
-    Note:
-        Compte les lignes (pas les quantités). Si tu veux le total
-        d'exemplaires, utilise get_manifest_total_quantity().
-    """
-    query = "SELECT COUNT(*) as count FROM manifest"
+    """Compte le nombre total de livres dans le MANIFEST (somme des quantités)."""
+    query = "SELECT SUM(quantity) as total FROM manifest"
     result = fetch_one(query)
     
-    if result:
-        return result['count']
+    if result and result['total']:
+        return result['total']
     return 0
 
 
