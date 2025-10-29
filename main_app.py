@@ -674,19 +674,19 @@ class EnrichmentTab(ttk.Frame):
         # Scrollbars (vertical + horizontal)
         scrollbar_y = ttk.Scrollbar(preview_frame, orient='vertical', command=self.preview_tree.yview)
         scrollbar_y.pack(side='right', fill='y')
-        self.preview_tree.configure(yscrollcommand=scrollbar_y.set)
-        
+
         scrollbar_x = ttk.Scrollbar(preview_frame, orient='horizontal', command=self.preview_tree.xview)
         scrollbar_x.pack(side='bottom', fill='x')
-        self.preview_tree.configure(xscrollcommand=scrollbar_x.set)
-        
+
+        self.preview_tree.configure(yscrollcommand=scrollbar_y.set, xscrollcommand=scrollbar_x.set)
+
         # Boutons
         button_frame = ttk.Frame(main_frame)
         button_frame.pack(pady=10)
-        
+
         self.refresh_btn = ttk.Button(button_frame, text="🔄 Rafraîchir", command=self.refresh_preview)
         self.refresh_btn.pack(side='left', padx=5)
-        
+
         self.enrich_btn = ttk.Button(button_frame, text="📚 Enrichir tous", command=self.start_enrichment)
         self.enrich_btn.pack(side='left', padx=5)
         
@@ -824,16 +824,23 @@ class EnrichmentTab(ttk.Frame):
             self.refresh_btn.config(state='normal')
             self.refresh_preview()
     
-    def log_progress(self, message):
-        """Callback pour logger la progression"""
-        self.log(message)
-    
+    def log_progress(self, current, total, message=""):
+        """Log enrichment progress with current/total count."""
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        if message:
+            log_msg = f"[{timestamp}] [{current}/{total}] {message}\n"
+        else:
+            log_msg = f"[{timestamp}] Progression: {current}/{total}\n"
+        self.log_text.insert('end', log_msg)
+        self.log_text.see('end')
+        self.log_text.update_idletasks()
+
     def log(self, message):
-        """Ajoute un message au log"""
+        """Log a simple message without progress counter."""
         timestamp = datetime.now().strftime("%H:%M:%S")
         self.log_text.insert('end', f"[{timestamp}] {message}\n")
         self.log_text.see('end')
-        self.update_idletasks()
+        self.log_text.update_idletasks()
 
 
 # ============================================================================
@@ -1169,19 +1176,23 @@ class ManifestTab(ttk.Frame):
     
     def search(self):
         """Recherche dans le MANIFEST"""
-        search_term = self.search_var.get().strip()
-        
+        # Nettoyer le terme de recherche (enlever virgules, espaces)
+        search_term = self.search_var.get().strip().replace(',', '').replace(' ', '')
+
         if not search_term:
-            messagebox.showwarning("Recherche", "Entrez un UPC ou un titre")
+            messagebox.showwarning("Recherche", "Veuillez entrer un UPC ou titre à rechercher")
             return
-        
+
+        # LOG dans la console
+        print(f"🔍 Recherche MANIFEST: '{search_term}'")
+
         # Vider le treeview
         for item in self.results_tree.get_children():
             self.results_tree.delete(item)
-        
+
         # Rechercher
         results = database.search_manifest(search_term)
-        
+
         for item in results:
             self.results_tree.insert('', 'end', values=(
                 item.get('pallet', ''),
@@ -1191,7 +1202,7 @@ class ManifestTab(ttk.Frame):
                 f"${item.get('msrp', 0):.2f}",
                 item.get('quantity', 0)
             ))
-        
+
         self.app.update_status(f"Recherche: {len(results)} résultat(s) trouvé(s)")
 
 
