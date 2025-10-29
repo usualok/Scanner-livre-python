@@ -1230,6 +1230,70 @@ def get_scan_by_id(scan_id: int) -> dict:
     query = "SELECT * FROM scans WHERE id = ?"
     return fetch_one(query, (scan_id,))
 
+
+def get_scans_by_date(start_date: str = None) -> list:
+    """
+    Récupère tous les scans enrichis à partir d'une date donnée.
+    
+    Args:
+        start_date: Date de début au format 'YYYY-MM-DD'. 
+                   Si None, retourne tous les scans enrichis.
+    
+    Returns:
+        Liste de dictionnaires contenant les scans
+    """
+    try:
+        if start_date:
+            # Filtrer par date (scans après start_date)
+            query = """
+                SELECT * FROM scans 
+                WHERE timestamp >= ? 
+                AND (author IS NOT NULL OR publisher IS NOT NULL)
+                ORDER BY timestamp DESC
+            """
+            return fetch_all(query, (start_date,))
+        else:
+            # Tous les scans enrichis (qui ont au moins author OU publisher)
+            query = """
+                SELECT * FROM scans 
+                WHERE author IS NOT NULL OR publisher IS NOT NULL
+                ORDER BY timestamp DESC
+            """
+            return fetch_all(query)
+    except Exception as e:
+        print(f"❌ Erreur get_scans_by_date: {e}")
+        return []
+
+
+def get_all_enriched_scans() -> list:
+    """
+    Récupère TOUS les scans qui ont été enrichis (avec author ou publisher).
+    
+    Returns:
+        Liste de dictionnaires contenant les scans enrichis
+    """
+    query = """
+        SELECT * FROM scans 
+        WHERE author IS NOT NULL OR publisher IS NOT NULL
+        ORDER BY timestamp DESC
+    """
+    return fetch_all(query)
+
+
+def count_enriched_scans() -> int:
+    """
+    Compte le nombre de scans enrichis.
+    
+    Returns:
+        Nombre de scans avec enrichissement
+    """
+    query = """
+        SELECT COUNT(*) as total FROM scans 
+        WHERE author IS NOT NULL OR publisher IS NOT NULL
+    """
+    result = fetch_one(query)
+    return result['total'] if result else 0
+
 if __name__ == "__main__":
     # Si on exécute ce fichier directement, lance les tests
     test_database()
