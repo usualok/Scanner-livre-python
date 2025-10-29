@@ -282,108 +282,76 @@ def merge_book_data(gb_data, ol_data, manifest_data, scan_data):
     
     return merged
 
-def enrich_book(upc, progress_callback=None):
+def enrich_book(upc: str) -> dict:
     """
-    Enrichit un livre (UPC) avec APIs.
-    Args: 
-        upc (str)
-        progress_callback (callable): fonction(message) pour feedback
-    Returns: 
-        dict: {'success': bool, 'data': dict, 'message': str}
-    """
-    if progress_callback:
-        progress_callback(f"📖 Enrichissement {upc}...")
+    Enrichit un livre via APIs (Google Books + OpenLibrary).
     
-    # 1. Get scan data
-    scans = database.get_scans_by_upc(upc)
-    if not scans:
-        return {
-            'success': False,
-            'data': None,
-            'message': f'UPC {upc} non trouvé dans scans'
-        }
-    
-    scan_data = scans[0]  # Prend premier scan (tous même UPC)
-    
-    # 2. Get MANIFEST data
-    manifest_data = database.get_manifest_by_upc(upc)
-    if not manifest_data:
-        return {
-            'success': False,
-            'data': None,
-            'message': f'UPC {upc} non trouvé dans MANIFEST'
-        }
-    
-    # 3. Call Google Books API
-    if progress_callback:
-        progress_callback(f"  🔍 Google Books...")
-    
-    gb_data = None
-    for attempt in range(config.API_MAX_RETRIES):
-        gb_data = fetch_google_books(upc)
-        if gb_data:
-            break
-        if attempt < config.API_MAX_RETRIES - 1:
-            time.sleep(config.API_RETRY_DELAY)
-    
-    # Rate limiting
-    time.sleep(config.GOOGLE_BOOKS_RATE_LIMIT)
-    
-    # 4. Call OpenLibrary API
-    if progress_callback:
-        progress_callback(f"  🔍 OpenLibrary...")
-    
-    ol_data = None
-    for attempt in range(config.API_MAX_RETRIES):
-        ol_data = fetch_openlibrary(upc)
-        if ol_data:
-            break
-        if attempt < config.API_MAX_RETRIES - 1:
-            time.sleep(config.API_RETRY_DELAY)
-    
-    # Rate limiting
-    time.sleep(config.OPENLIBRARY_RATE_LIMIT)
-    
-    # 5. Merge data
-    if not gb_data and not ol_data:
-        # Aucune donnée API → use MANIFEST seulement
-        merged = {
-            'upc': upc,
-            'title': manifest_data.get('title', 'Titre inconnu'),
-            'author': 'Auteur inconnu',
-            'publisher': '',
-            'pub_year': '',
-            'pages': config.DEFAULT_PAGES,
-            'binding': config.DEFAULT_BINDING,
-            'language': config.DEFAULT_LANGUAGE,
-            'description': 'Description non disponible.',
-            'description_html': '',
-            'image_url': '',
-            'condition': scan_data.get('condition'),
-            'msrp': manifest_data.get('msrp', 0),
-            'start_price': utils.calculate_price(manifest_data.get('msrp', 0), scan_data.get('condition')),
-            'ebay_category': config.EBAY_CATEGORY_BOOKS,
-            'ebay_condition_id': config.get_condition_info(scan_data.get('condition'))['id'],
-            'data_source': 'MANIFEST_only'
-        }
+    Args:
+        upc: Code UPC/ISBN du livre
         
-        # Generate basic description
-        merged['description_html'] = utils.generate_ebay_description(merged)
-    
-    else:
-        merged = merge_book_data(gb_data, ol_data, manifest_data, scan_data)
-    
-    # 6. Update database
-    database.update_scan_enrichment(upc, merged)
-    
-    if progress_callback:
-        progress_callback(f"  ✅ Enrichi! (source: {merged.get('data_source', 'unknown')})")
-    
-    return {
-        'success': True,
-        'data': merged,
-        'message': f"Enrichi avec {merged.get('data_source', 'unknown')}"
+    Returns:
+        dict avec les données enrichies
+    """
+    result = {
+        'success': False,
+        'title': None,
+        'author': None,
+        'publisher': None,
+        'publication_date': None,
+        'isbn': None,
+        'isbn13': None,
+        'language': None,
+        'pages': None,
+        'description': None,
+        'category': None,
+        'image_url': None,
+        'retail_price': None,
+        'api_source': None
     }
+    try:
+        # Essayer Google Books
+        print(f"    🔍 Google Books...")
+        google_data = fetch_google_books(upc)
+        # Adapter le format pour correspondre à l'API attendue
+        if google_data:
+            result['success'] = True
+            result['title'] = google_data.get('title')
+            result['author'] = google_data.get('author')
+            result['publisher'] = google_data.get('publisher')
+            result['publication_date'] = google_data.get('pub_year')
+            result['language'] = google_data.get('language')
+            result['pages'] = google_data.get('pages')
+            result['description'] = google_data.get('description')
+            result['image_url'] = google_data.get('image_url')
+            result['api_source'] = 'GoogleBooks'
+        print(f"    🔍 OpenLibrary...")
+        openlibrary_data = fetch_openlibrary(upc)
+        if openlibrary_data:
+            # Compléter les champs manquants
+            if not result['title']:
+                result['title'] = openlibrary_data.get('title')
+            if not result['author']:
+                result['author'] = openlibrary_data.get('author')
+            if not result['publisher']:
+                result['publisher'] = openlibrary_data.get('publisher')
+            if not result['publication_date']:
+                result['publication_date'] = openlibrary_data.get('pub_year')
+            if not result['pages']:
+                result['pages'] = openlibrary_data.get('pages')
+            if not result['description']:
+                result['description'] = openlibrary_data.get('description')
+            if not result['image_url']:
+                result['image_url'] = openlibrary_data.get('image_url')
+            # Mise à jour de la source
+            if result['api_source']:
+                result['api_source'] = f"{result['api_source']}+OpenLibrary"
+            else:
+                result['api_source'] = 'OpenLibrary'
+            result['success'] = True
+        return result
+    except Exception as e:
+        print(f"❌ Erreur enrichissement: {e}")
+        return result
 
 # ========================================================================
 # BATCH ENRICHMENT

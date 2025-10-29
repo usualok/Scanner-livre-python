@@ -803,21 +803,50 @@ class EnrichmentTab(ttk.Frame):
             thread.start()
     
     def run_enrichment(self):
-        """Exécute l'enrichissement"""
+        """Exécute l'enrichissement avec debug, update DB, et stats"""
         try:
             self.log("🚀 Démarrage de l'enrichissement...")
-            
             result = enrichment_module.enrich_unenriched_scans(progress_callback=self.log_progress)
-            
-            self.log(f"✅ Terminé! Succès: {result['success']}, Échecs: {result['failed']}")
-            
-            messagebox.showinfo("Enrichissement terminé", 
-                              f"Succès: {result['success']}\nÉchecs: {result['failed']}")
-            
+            success_count = 0
+            fail_count = 0
+            for idx, res in enumerate(result.get('results', []), 1):
+                upc = res.get('upc')
+                success = res.get('success', False)
+                data = res.get('data', {})
+                msg = res.get('message', '')
+                self.log(f"[DEBUG] Résultat {idx}: UPC={upc} | Succès={success} | Message={msg}")
+                # Chercher le scan_id correspondant à l'UPC
+                scan = None
+                try:
+                    scans = database.get_unenriched_scans()
+                    scan = next((s for s in scans if s.get('upc') == upc), None)
+                except Exception as e:
+                    self.log(f"[DEBUG] Erreur recherche scan pour UPC {upc}: {e}")
+                if scan and success:
+                    scan_id = scan.get('id')
+                    if scan_id is not None:
+                        try:
+                            ok = database.update_scan_enrichment(scan_id, data)
+                            if ok:
+                                self.log(f"[DEBUG] update_scan_enrichment OK pour scan_id={scan_id}")
+                                success_count += 1
+                            else:
+                                self.log(f"[DEBUG] update_scan_enrichment ECHEC pour scan_id={scan_id}")
+                                fail_count += 1
+                        except Exception as e:
+                            self.log(f"[DEBUG] Exception update_scan_enrichment: {e}")
+                            fail_count += 1
+                    else:
+                        self.log(f"[DEBUG] scan_id introuvable pour UPC {upc}")
+                        fail_count += 1
+                else:
+                    self.log(f"[DEBUG] Scan non trouvé ou enrichissement échoué pour UPC {upc}")
+                    fail_count += 1
+            self.log(f"✅ Terminé! Succès: {success_count}, Échecs: {fail_count}")
+            messagebox.showinfo("Enrichissement terminé", f"Succès: {success_count}\nÉchecs: {fail_count}")
         except Exception as e:
             self.log(f"❌ Erreur: {e}")
             messagebox.showerror("Erreur", f"Erreur lors de l'enrichissement:\n{e}")
-        
         finally:
             self.progress.stop()
             self.enrich_btn.config(state='normal')

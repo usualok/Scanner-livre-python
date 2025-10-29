@@ -1166,54 +1166,88 @@ def update_scan_enrichment(scan_id: int, enrichment_data: dict) -> bool:
         True si succès, False sinon
     """
     try:
-        # Préparer les colonnes à mettre à jour
-        update_fields = []
+        # Liste des champs à mettre à jour
+        updates = []
         values = []
         
-        # Mapping des champs d'enrichissement vers les colonnes de la DB
-        field_mapping = {
-            'title': 'title',
-            'author': 'author',
-            'publisher': 'publisher',
-            'publication_date': 'publication_date',
-            'isbn': 'isbn',
-            'isbn13': 'isbn13',
-            'language': 'language',
-            'pages': 'pages',
-            'dimensions': 'dimensions',
-            'weight': 'weight_minor',
-            'description': 'description',
-            'category': 'category',
-            'image_url': 'image_url',
-            'retail_price': 'msrp',
-            'api_source': 'api_source'
-        }
+        # Mapping API → DB (champs les plus importants)
+        if enrichment_data.get('title'):
+            updates.append("title = ?")
+            values.append(enrichment_data['title'])
         
-        # Construire la requête UPDATE dynamiquement
-        for api_field, db_field in field_mapping.items():
-            if api_field in enrichment_data and enrichment_data[api_field]:
-                update_fields.append(f"{db_field} = ?")
-                values.append(enrichment_data[api_field])
+        if enrichment_data.get('author'):
+            updates.append("author = ?")
+            values.append(enrichment_data['author'])
         
-        # Si aucun champ à mettre à jour, retourner True quand même
-        if not update_fields:
+        if enrichment_data.get('publisher'):
+            updates.append("publisher = ?")
+            values.append(enrichment_data['publisher'])
+        
+        if enrichment_data.get('publication_date'):
+            updates.append("publication_date = ?")
+            values.append(enrichment_data['publication_date'])
+        
+        if enrichment_data.get('isbn'):
+            updates.append("isbn = ?")
+            values.append(enrichment_data['isbn'])
+        
+        if enrichment_data.get('isbn13'):
+            updates.append("isbn13 = ?")
+            values.append(enrichment_data['isbn13'])
+        
+        if enrichment_data.get('language'):
+            updates.append("language = ?")
+            values.append(enrichment_data['language'])
+        
+        if enrichment_data.get('pages'):
+            updates.append("pages = ?")
+            values.append(enrichment_data['pages'])
+        
+        if enrichment_data.get('description'):
+            updates.append("description = ?")
+            values.append(enrichment_data['description'])
+        
+        if enrichment_data.get('category'):
+            updates.append("category = ?")
+            values.append(enrichment_data['category'])
+        
+        if enrichment_data.get('image_url'):
+            updates.append("image_url = ?")
+            values.append(enrichment_data['image_url'])
+        
+        if enrichment_data.get('retail_price'):
+            updates.append("msrp = ?")
+            values.append(enrichment_data['retail_price'])
+        
+        if enrichment_data.get('api_source'):
+            updates.append("api_source = ?")
+            values.append(enrichment_data['api_source'])
+        
+        # Si aucune donnée à mettre à jour, retourner True quand même
+        if not updates:
+            print(f"⚠️  Aucune donnée à sauvegarder pour scan_id={scan_id}")
             return True
         
-        # Ajouter l'ID à la fin des valeurs
+        # Ajouter l'ID à la fin
         values.append(scan_id)
         
-        # Construire et exécuter la requête
-        query = f"""
-            UPDATE scans 
-            SET {', '.join(update_fields)}
-            WHERE id = ?
-        """
+        # Construire la requête SQL
+        query = f"UPDATE scans SET {', '.join(updates)} WHERE id = ?"
         
+        # DEBUG: Afficher la requête
+        print(f"🔧 SQL UPDATE: {query}")
+        print(f"🔧 VALUES: {values}")
+        
+        # Exécuter
         execute_query(query, tuple(values))
+        
+        print(f"✅ Scan {scan_id} mis à jour avec succès")
         return True
         
     except Exception as e:
-        print(f"❌ Erreur update_scan_enrichment: {e}")
+        print(f"❌ Erreur update_scan_enrichment (scan_id={scan_id}): {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 
