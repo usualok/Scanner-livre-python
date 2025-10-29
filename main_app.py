@@ -620,30 +620,65 @@ class EnrichmentTab(ttk.Frame):
         self.stats_label = ttk.Label(stats_frame, text="Chargement...", font=('Arial', 11))
         self.stats_label.pack()
         
-        # Preview des scans à enrichir
-        preview_frame = ttk.LabelFrame(main_frame, text="📋 Scans à enrichir (preview)", padding=10)
+        # Preview des scans à enrichir (51 COLONNES EBAY)
+        preview_frame = ttk.LabelFrame(main_frame, text="📋 Scans à enrichir (format eBay 51 colonnes)", padding=10)
         preview_frame.pack(fill='both', expand=True, pady=10)
         
-        # Treeview pour preview
-        columns = ('upc', 'title', 'condition', 'qty')
+        # Treeview avec 51 colonnes eBay
+        columns = (
+            'action', 'custom_label', 'category_id', 'category_name', 'title',
+            'relationship', 'relationship_details', 'schedule_time', 'epid',
+            'start_price', 'quantity', 'item_photo_url', 'video_id', 'condition_id',
+            'description', 'format', 'duration', 'buy_it_now_price',
+            'best_offer_enabled', 'best_offer_auto_accept', 'min_best_offer',
+            'immediate_pay', 'location', 'shipping_service_1', 'shipping_cost_1',
+            'shipping_priority_1', 'shipping_service_2', 'shipping_cost_2',
+            'shipping_priority_2', 'max_dispatch_time', 'returns_accepted',
+            'returns_within', 'refund_option', 'return_shipping_paid_by',
+            'shipping_profile', 'return_profile', 'payment_profile',
+            'compliance_policy_id', 'regional_compliance', 'author', 'book_title',
+            'language', 'book_format', 'pub_year', 'weight_major', 'weight_minor',
+            'weight_unit', 'pkg_length', 'pkg_depth', 'pkg_width', 'postal_code'
+        )
+        
         self.preview_tree = ttk.Treeview(preview_frame, columns=columns, show='headings', height=15)
         
-        self.preview_tree.heading('upc', text='UPC')
-        self.preview_tree.heading('title', text='Titre')
-        self.preview_tree.heading('condition', text='Condition')
-        self.preview_tree.heading('qty', text='Qty')
+        # Headers (noms courts pour lisibilité)
+        headers_short = [
+            'Action', 'SKU', 'Cat ID', 'Cat Name', 'Title',
+            'Rel', 'Rel Details', 'Schedule', 'EPID',
+            'Price', 'Qty', 'Photo', 'Video', 'Cond ID',
+            'Desc', 'Format', 'Duration', 'BuyNow',
+            'BestOffer', 'Auto Accept', 'Min Offer',
+            'Immed Pay', 'Location', 'Ship1', 'Cost1',
+            'Prior1', 'Ship2', 'Cost2', 'Prior2',
+            'Dispatch', 'Returns', 'Return Days', 'Refund',
+            'Return Ship', 'Ship Profile', 'Return Profile', 'Pay Profile',
+            'Compliance', 'Regional', 'Author', 'Book Title',
+            'Lang', 'Format', 'Year', 'W.Maj', 'W.Min',
+            'W.Unit', 'Length', 'Depth', 'Width', 'Postal'
+        ]
         
-        self.preview_tree.column('upc', width=120)
-        self.preview_tree.column('title', width=400)
-        self.preview_tree.column('condition', width=100)
-        self.preview_tree.column('qty', width=80)
+        for i, col in enumerate(columns):
+            self.preview_tree.heading(col, text=headers_short[i])
+            self.preview_tree.column(col, width=80)
+        
+        # Colonnes plus larges pour Title et Description
+        self.preview_tree.column('title', width=250)
+        self.preview_tree.column('description', width=200)
+        self.preview_tree.column('author', width=120)
+        self.preview_tree.column('book_title', width=200)
         
         self.preview_tree.pack(fill='both', expand=True, side='left')
         
-        # Scrollbar
-        scrollbar = ttk.Scrollbar(preview_frame, orient='vertical', command=self.preview_tree.yview)
-        scrollbar.pack(side='right', fill='y')
-        self.preview_tree.configure(yscrollcommand=scrollbar.set)
+        # Scrollbars (vertical + horizontal)
+        scrollbar_y = ttk.Scrollbar(preview_frame, orient='vertical', command=self.preview_tree.yview)
+        scrollbar_y.pack(side='right', fill='y')
+        self.preview_tree.configure(yscrollcommand=scrollbar_y.set)
+        
+        scrollbar_x = ttk.Scrollbar(preview_frame, orient='horizontal', command=self.preview_tree.xview)
+        scrollbar_x.pack(side='bottom', fill='x')
+        self.preview_tree.configure(xscrollcommand=scrollbar_x.set)
         
         # Boutons
         button_frame = ttk.Frame(main_frame)
@@ -670,7 +705,7 @@ class EnrichmentTab(ttk.Frame):
         self.refresh_preview()
     
     def refresh_preview(self):
-        """Rafraîchit la preview des scans à enrichir"""
+        """Rafraîchit la preview des scans à enrichir (format eBay 51 colonnes)"""
         # Vider le treeview
         for item in self.preview_tree.get_children():
             self.preview_tree.delete(item)
@@ -683,20 +718,79 @@ class EnrichmentTab(ttk.Frame):
         enriched = database.get_enriched_count()
         self.stats_label.config(text=f"Scans enrichis: {enriched} | À enrichir: {total}")
         
-        # Remplir le treeview
+        # Remplir le treeview avec format eBay
         for scan in scans[:100]:  # Limiter à 100 pour ne pas surcharger
-            # Compter combien de fois ce UPC apparaît
-            qty = sum(1 for s in scans if s['upc'] == scan['upc'])
-            
-            self.preview_tree.insert('', 'end', values=(
-                scan.get('upc', ''),
-                scan.get('title', 'N/A')[:50],
-                scan.get('condition', ''),
-                qty
-            ))
+            ebay_row = self.build_ebay_row_preview(scan)
+            self.preview_tree.insert('', 'end', values=ebay_row)
         
         if total > 100:
             self.log(f"Affichage des 100 premiers sur {total} scans à enrichir")
+    
+    def build_ebay_row_preview(self, scan):
+        """Construit une ligne au format eBay (51 colonnes) pour preview"""
+        # Valeurs par défaut (comme dans Google Sheet)
+        return (
+            'Add',                                      # Action
+            scan.get('upc', ''),                        # Custom label (SKU) = UPC
+            '',                                         # Category ID
+            '',                                         # Category name
+            scan.get('title', 'N/A')[:100],            # Title
+            '',                                         # Relationship
+            '',                                         # Relationship details
+            '',                                         # Schedule Time
+            '',                                         # P:EPID
+            '',                                         # Start price (sera calculé)
+            scan.get('quantity', 0),                    # Quantity
+            '',                                         # Item photo URL
+            '',                                         # VideoID
+            self.get_condition_id(scan.get('condition', 'USED')),  # Condition ID
+            '',                                         # Description (sera enrichi)
+            'FixedPrice',                              # Format
+            'GTC',                                     # Duration
+            '',                                         # Buy It Now price
+            '',                                         # Best Offer Enabled
+            '',                                         # Best Offer Auto Accept Price
+            '',                                         # Minimum Best Offer Price
+            '',                                         # Immediate pay required
+            'VALCOURT,QC',                             # Location (FIXE)
+            '',                                         # Shipping service 1 option
+            '',                                         # Shipping service 1 cost
+            '',                                         # Shipping service 1 priority
+            '',                                         # Shipping service 2 option
+            '',                                         # Shipping service 2 cost
+            '',                                         # Shipping service 2 priority
+            '',                                         # Max dispatch time
+            '',                                         # Returns accepted option
+            '',                                         # Returns within option
+            '',                                         # Refund option
+            '',                                         # Return shipping cost paid by
+            '',                                         # Shipping profile name
+            '',                                         # Return profile name
+            '',                                         # Payment profile name
+            '',                                         # ProductCompliancePolicyID
+            '',                                         # Regional ProductCompliancePolicies
+            scan.get('author', ''),                     # C:Author (sera enrichi)
+            scan.get('title', '')[:100],               # C:Book Title
+            scan.get('language', ''),                   # C:Language (sera enrichi)
+            '',                                         # C:Format (sera enrichi)
+            scan.get('pub_year', ''),                   # C:Publication Year (sera enrichi)
+            scan.get('weight_major', 0),               # WeightMajor
+            scan.get('weight_minor', 0),               # WeightMinor
+            '',                                         # WeightUnit
+            scan.get('pkg_length', 0),                 # PackageLength
+            scan.get('pkg_depth', 0),                  # PackageDepth
+            scan.get('pkg_width', 0),                  # PackageWidth
+            'J0E2L0'                                   # PostalCode (FIXE)
+        )
+    
+    def get_condition_id(self, condition):
+        """Retourne l'ID de condition eBay"""
+        condition_map = {
+            'NEW': '1000',
+            'GOOD': '2750',
+            'USED': '5000'
+        }
+        return condition_map.get(condition.upper(), '5000')
     
     def start_enrichment(self):
         """Lance l'enrichissement en arrière-plan"""
