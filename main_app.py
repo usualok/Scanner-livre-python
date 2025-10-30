@@ -974,15 +974,6 @@ class ExportTab(ttk.Frame):
         except Exception as e:
             self.log(f"❌ Erreur: {e}")
             messagebox.showerror("Erreur", f"Erreur lors de l'export:\n{e}")
-                messagebox.showinfo("Succès", f"{result['message']}\n\nFichier: {result['file_path']}")
-                self.refresh_stats()
-            else:
-                error_msg = result.get('message', 'Erreur inconnue') if result else 'Erreur inconnue'
-                self.log(f"❌ {error_msg}")
-                messagebox.showerror("Erreur", error_msg)
-        except Exception as e:
-            self.log(f"❌ Erreur: {e}")
-            messagebox.showerror("Erreur", f"Erreur lors de l'export:\n{e}")
     
     def log(self, message):
         """Ajoute un message au log"""
