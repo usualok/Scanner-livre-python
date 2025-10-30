@@ -1,4 +1,3 @@
-# ======================= EXPORT CSV (NOUVELLE SIGNATURE) =======================
 def export_to_ebay_csv(output_path: str, scans_data: list) -> dict:
     """
     Exporte les scans enrichis vers un CSV format eBay (51 colonnes).

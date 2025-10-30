@@ -940,15 +940,6 @@ class ExportTab(ttk.Frame):
         # Charger stats
         self.refresh_stats()
     
-    def refresh_stats(self):
-        """Rafraîchit les statistiques"""
-        enriched = database.get_enriched_count()
-        exported = database.get_exported_count()
-        to_export = enriched - exported
-        
-        self.stats_label.config(text=f"Enrichis: {enriched} | Déjà exportés: {exported} | À exporter: {to_export}")
-        self.log(f"Stats mises à jour: {to_export} scans à exporter")
-    
     def export_csv(self):
         """Exporte les scans vers un CSV eBay"""
         try:
@@ -973,7 +964,16 @@ class ExportTab(ttk.Frame):
             # Vérifier le résultat
             if result and result.get('success'):
                 self.log(f"✅ {result['message']}")
-                self.log(f"� Fichier: {result['file_path']}")
+                self.log(f"📁 Fichier: {result['file_path']}")
+                messagebox.showinfo("Succès", f"{result['message']}\n\nFichier: {result['file_path']}")
+                self.refresh_stats()
+            else:
+                error_msg = result.get('message', 'Erreur inconnue') if result else 'Erreur inconnue'
+                self.log(f"❌ {error_msg}")
+                messagebox.showerror("Erreur", error_msg)
+        except Exception as e:
+            self.log(f"❌ Erreur: {e}")
+            messagebox.showerror("Erreur", f"Erreur lors de l'export:\n{e}")
                 messagebox.showinfo("Succès", f"{result['message']}\n\nFichier: {result['file_path']}")
                 self.refresh_stats()
             else:
