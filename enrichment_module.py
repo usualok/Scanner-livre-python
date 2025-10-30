@@ -290,55 +290,92 @@ def enrich_book(upc, progress_callback=None):
         upc (str): Code UPC du livre
         progress_callback (callable, optional): Fonction pour logs (message)
     Returns:
-        dict: {
-            'success': bool,
-            'message': str,
-            'data': dict or None
-        }
+        dict avec tous les champs enrichis (title, author, publisher, etc.) 
+        et un champ 'success' = True/False
     """
+    # Structure de base avec tous les champs
+    result = {
+        'success': False,
+        'title': None,
+        'author': None,
+        'publisher': None,
+        'publication_date': None,
+        'isbn': None,
+        'isbn13': None,
+        'language': None,
+        'pages': None,
+        'description': None,
+        'category': None,
+        'image_url': None,
+        'retail_price': None,
+        'api_source': None
+    }
+    
     if progress_callback:
         progress_callback(f"🔍 Recherche UPC: {upc}")
+    
     try:
         # 1. Essayer Google Books API
         if progress_callback:
             progress_callback("  → Tentative Google Books API...")
         google_data = fetch_google_books(upc)
+        
         if google_data:
             if progress_callback:
                 progress_callback("  ✅ Trouvé sur Google Books!")
-            return {
-                'success': True,
-                'message': 'Enrichi via Google Books',
-                'data': google_data
-            }
-        # 2. Essayer OpenLibrary API (fallback)
+            result['success'] = True
+            result['title'] = google_data.get('title')
+            result['author'] = google_data.get('author')
+            result['publisher'] = google_data.get('publisher')
+            result['publication_date'] = google_data.get('pub_year')
+            result['language'] = google_data.get('language')
+            result['pages'] = google_data.get('pages')
+            result['description'] = google_data.get('description')
+            result['image_url'] = google_data.get('image_url')
+            result['api_source'] = 'GoogleBooks'
+        
+        # 2. Essayer OpenLibrary API (fallback ou complément)
         if progress_callback:
             progress_callback("  → Tentative OpenLibrary API...")
         openlibrary_data = fetch_openlibrary(upc)
+        
         if openlibrary_data:
             if progress_callback:
                 progress_callback("  ✅ Trouvé sur OpenLibrary!")
-            return {
-                'success': True,
-                'message': 'Enrichi via OpenLibrary',
-                'data': openlibrary_data
-            }
-        # 3. Aucune donnée trouvée
-        if progress_callback:
-            progress_callback("  ❌ Non trouvé dans les APIs")
-        return {
-            'success': False,
-            'message': 'Aucune donnée trouvée',
-            'data': None
-        }
+            # Compléter les champs manquants
+            if not result['title']:
+                result['title'] = openlibrary_data.get('title')
+            if not result['author']:
+                result['author'] = openlibrary_data.get('author')
+            if not result['publisher']:
+                result['publisher'] = openlibrary_data.get('publisher')
+            if not result['publication_date']:
+                result['publication_date'] = openlibrary_data.get('pub_year')
+            if not result['pages']:
+                result['pages'] = openlibrary_data.get('pages')
+            if not result['description']:
+                result['description'] = openlibrary_data.get('description')
+            if not result['image_url']:
+                result['image_url'] = openlibrary_data.get('image_url')
+            # Mise à jour de la source
+            if result['api_source']:
+                result['api_source'] = f"{result['api_source']}+OpenLibrary"
+            else:
+                result['api_source'] = 'OpenLibrary'
+            result['success'] = True
+        
+        # 3. Vérifier si on a trouvé quelque chose
+        if not result['success']:
+            if progress_callback:
+                progress_callback("  ❌ Non trouvé dans les APIs")
+        
+        return result
+        
     except Exception as e:
         if progress_callback:
             progress_callback(f"  ❌ Erreur: {e}")
-        return {
-            'success': False,
-            'message': f'Erreur: {e}',
-            'data': None
-        }
+        print(f"❌ Erreur enrichissement: {e}")
+        return result
 
 # ========================================================================
 # BATCH ENRICHMENT
@@ -378,15 +415,17 @@ def enrich_books(upc_list, progress_callback=None):
             # Ne pas appeler progress_callback ici pour éviter spam
         # Enrichir avec progress_callback
         result = enrich_book(upc, progress_callback=item_progress)
-        # Stocker résultat
+        
+        # Stocker résultat (result contient déjà tous les champs + success)
         results.append({
             'upc': upc,
-            'success': result['success'],
-            'message': result['message'],
-            'data': result['data']
+            'success': result.get('success', False),
+            'message': 'Enrichi' if result.get('success') else 'Échec',
+            'data': result  # Le dict complet avec tous les champs
         })
+        
         # Compter
-        if result['success']:
+        if result.get('success'):
             success_count += 1
         else:
             failed_count += 1
