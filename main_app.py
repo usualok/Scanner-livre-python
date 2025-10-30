@@ -877,6 +877,23 @@ class EnrichmentTab(ttk.Frame):
 # ============================================================================
 
 class ExportTab(ttk.Frame):
+    def refresh_stats(self):
+        """Rafraîchit les statistiques d'export"""
+        try:
+            # Compter les scans enrichis
+            total_enriched = database.count_enriched_scans()
+            # Compter les scans à exporter (depuis une date donnée)
+            start_date = self.date_var.get()
+            scans_to_export = database.get_scans_by_date(start_date)
+            count_to_export = len(scans_to_export) if scans_to_export else 0
+            # Mettre à jour le label
+            self.stats_label.config(
+                text=f"Scans enrichis: {total_enriched} | À exporter: {count_to_export}"
+            )
+            self.log(f"Stats mises à jour: {count_to_export} scans à exporter")
+        except Exception as e:
+            self.stats_label.config(text=f"Erreur: {e}")
+            self.log(f"❌ Erreur stats: {e}")
     """Onglet pour exporter vers eBay"""
     
     def __init__(self, parent, app):
