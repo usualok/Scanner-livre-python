@@ -728,7 +728,8 @@ class EnrichmentTab(ttk.Frame):
     
     def build_ebay_row_preview(self, scan):
         """Construit une ligne au format eBay (51 colonnes) pour preview"""
-        # Valeurs par défaut (comme dans Google Sheet)
+        # Récupérer la quantité (plusieurs clés possibles)
+        qty = scan.get('quantity') or scan.get('qty') or 1
         return (
             'Add',                                      # Action
             scan.get('upc', ''),                        # Custom label (SKU) = UPC
@@ -740,7 +741,7 @@ class EnrichmentTab(ttk.Frame):
             '',                                         # Schedule Time
             '',                                         # P:EPID
             '',                                         # Start price (sera calculé)
-            scan.get('quantity', 0),                    # Quantity
+            qty,                                        # Quantity (corrigé)
             '',                                         # Item photo URL
             '',                                         # VideoID
             self.get_condition_id(scan.get('condition', 'USED')),  # Condition ID
@@ -877,6 +878,23 @@ class EnrichmentTab(ttk.Frame):
 # ============================================================================
 
 class ExportTab(ttk.Frame):
+    def refresh_stats(self):
+        """Rafraîchit les statistiques d'export"""
+        try:
+            # Compter les scans enrichis
+            total_enriched = database.count_enriched_scans()
+            # Compter les scans à exporter (depuis une date donnée)
+            start_date = self.date_var.get()
+            scans_to_export = database.get_scans_by_date(start_date)
+            count_to_export = len(scans_to_export) if scans_to_export else 0
+            # Mettre à jour le label
+            self.stats_label.config(
+                text=f"Scans enrichis: {total_enriched} | À exporter: {count_to_export}"
+            )
+            self.log(f"Stats mises à jour: {count_to_export} scans à exporter")
+        except Exception as e:
+            self.stats_label.config(text=f"Erreur: {e}")
+            self.log(f"❌ Erreur stats: {e}")
     def refresh_stats(self):
         """Rafraîchit les statistiques d'export"""
         try:
